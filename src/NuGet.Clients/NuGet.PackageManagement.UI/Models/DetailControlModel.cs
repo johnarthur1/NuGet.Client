@@ -543,10 +543,7 @@ namespace NuGet.PackageManagement.UI
                 .Where(v => v.versionInfo.PackageSearchMetadata != null)
                 .ToDictionary(
                     v => v.versionInfo.Version,
-                    v => new DetailedPackageMetadata(v.versionInfo.PackageSearchMetadata,
-                        v.deprecationMetadata,
-                        v.vulnerabilityMetadata,
-                        v.versionInfo.DownloadCount));
+                    v => v.packageMetadata);
 
             // If we are missing any metadata, go to the metadata provider and fetch all of the data again.
             if (versions.Select(v => v.versionInfo.Version).Except(_metadataDict.Keys).Any())
@@ -580,8 +577,8 @@ namespace NuGet.PackageManagement.UI
                             d => d.versionInfo.Version,
                             (m, d) =>
                             {
-                                var (versionInfo, deprecationMetadata, vulnerabilityMetadata) = d
-                                    .OrderByDescending(v => v.versionInfo.DownloadCount ?? 0)
+                                var (versionInfo, packageMetadata) = d
+                                    .OrderByDescending(v => v.packageMetadata.DownloadCount ?? 0)
                                     .FirstOrDefault();
 
                                 return new DetailedPackageMetadata(
@@ -606,9 +603,7 @@ namespace NuGet.PackageManagement.UI
             }
         }
 
-        private async Task<IEnumerable<(VersionInfo versionInfo,
-            PackageDeprecationMetadata deprecationMetadata,
-            IEnumerable<PackageVulnerabilityMetadata> vulnerabilityMetadata)>> GetVersionsWithExtendedMetadataAsync()
+        private async Task<IEnumerable<(VersionInfo versionInfo, DetailedPackageMetadata packageMetadata)>> GetVersionsWithExtendedMetadataAsync()
         {
             var versions = await _searchResultPackage.GetVersionsAsync();
             return await Task.WhenAll(
@@ -621,7 +616,8 @@ namespace NuGet.PackageManagement.UI
                         ? await version.PackageSearchMetadata.GetVulnerabilityMetadataAsync()
                         : null;
 
-                    return (version, deprecationMetadata, vulnerabilityMetadata);
+                    return (version,
+                      new DetailedPackageMetadata(version.PackageSearchMetadata, deprecationMetadata, vulnerabilityMetadata, version.DownloadCount));
                 }));
         }
 
